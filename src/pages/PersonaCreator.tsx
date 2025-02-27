@@ -9,6 +9,14 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from 'react-router-dom';
 import { supabase } from "@/integrations/supabase/client";
 
+type PersonaInsert = {
+  name: string;
+  role: string;
+  user_id: string;
+  status: 'draft' | 'published';
+  description?: string | null;
+};
+
 const PersonaCreator = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -29,14 +37,17 @@ const PersonaCreator = () => {
         return;
       }
 
+      const newPersona: PersonaInsert = {
+        name: 'New Persona',
+        role: 'influencer',
+        user_id: user.id,
+        status: 'draft'
+      };
+
       // Create the basic persona first
       const { data: persona, error: personaError } = await supabase
         .from('personas')
-        .insert({
-          name: 'New Persona',
-          role: 'influencer',
-          user_id: user.id,
-        })
+        .insert(newPersona)
         .select()
         .single();
 

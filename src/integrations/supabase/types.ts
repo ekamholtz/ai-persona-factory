@@ -9,7 +9,106 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      avatar_settings: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string | null
+          persona_id: string
+          style_settings: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          persona_id: string
+          style_settings?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          persona_id?: string
+          style_settings?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_settings_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: true
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      personality_traits: {
+        Row: {
+          created_at: string
+          id: string
+          persona_id: string
+          trait_type: string
+          trait_value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          persona_id: string
+          trait_type: string
+          trait_value: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          persona_id?: string
+          trait_type?: string
+          trait_value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personality_traits_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      personas: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          role: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          role: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
