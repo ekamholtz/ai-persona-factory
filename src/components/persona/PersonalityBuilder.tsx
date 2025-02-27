@@ -1,7 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { Slider } from "@/components/ui/slider";
-import { Label } from "@/components/ui/label";
+import TraitSection from './TraitSection';
 import { traitDefinitions, defaultTraits } from '@/utils/personalityDefaults';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -33,63 +32,24 @@ const PersonalityBuilder = ({ onChange, selectedRole }: PersonalityBuilderProps)
     onChange(newTraits);
   };
 
+  const coreTraits = traitDefinitions.slice(0, 5);
+  const advancedTraits = traitDefinitions.slice(5);
+
   return (
     <div className="space-y-8">
-      {/* Basic Traits Section */}
-      <div className="mb-8">
-        <h3 className="text-lg font-semibold mb-4">Core Personality Traits</h3>
-        <div className="space-y-6">
-          {traitDefinitions.slice(0, 5).map((trait) => (
-            <div key={trait.key} className="space-y-4">
-              <div className="flex justify-between items-center">
-                <Label>{trait.name}</Label>
-                <span className="text-sm text-muted-foreground">{traits[trait.key]}%</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground w-24">{trait.min}</span>
-                <Slider
-                  defaultValue={[traits[trait.key]]}
-                  max={100}
-                  step={1}
-                  value={[traits[trait.key]]}
-                  onValueChange={(value) => handleTraitChange(trait.key, value)}
-                  className="flex-1"
-                />
-                <span className="text-sm text-muted-foreground w-24 text-right">{trait.max}</span>
-              </div>
-              <p className="text-sm text-muted-foreground">{trait.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+      <TraitSection
+        title="Core Personality Traits"
+        traits={coreTraits}
+        values={traits}
+        onChange={handleTraitChange}
+      />
 
-      {/* Advanced Traits Section */}
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Advanced Personality Settings</h3>
-        <div className="space-y-6">
-          {traitDefinitions.slice(5).map((trait) => (
-            <div key={trait.key} className="space-y-4">
-              <div className="flex justify-between items-center">
-                <Label>{trait.name}</Label>
-                <span className="text-sm text-muted-foreground">{traits[trait.key]}%</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground w-24">{trait.min}</span>
-                <Slider
-                  defaultValue={[traits[trait.key]]}
-                  max={100}
-                  step={1}
-                  value={[traits[trait.key]]}
-                  onValueChange={(value) => handleTraitChange(trait.key, value)}
-                  className="flex-1"
-                />
-                <span className="text-sm text-muted-foreground w-24 text-right">{trait.max}</span>
-              </div>
-              <p className="text-sm text-muted-foreground">{trait.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+      <TraitSection
+        title="Advanced Personality Settings"
+        traits={advancedTraits}
+        values={traits}
+        onChange={handleTraitChange}
+      />
 
       <div className="mt-8">
         <p className="text-sm text-muted-foreground">
