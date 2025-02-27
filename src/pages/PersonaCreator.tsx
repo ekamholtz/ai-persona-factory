@@ -8,10 +8,13 @@ import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from 'react-router-dom';
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from '@/integrations/supabase/types';
+
+type PersonaRole = Database['public']['Enums']['persona_role'];
 
 type PersonaInsert = {
   name: string;
-  role: string;
+  role: PersonaRole;
   user_id: string;
   status: 'draft' | 'published';
   description?: string | null;
@@ -22,10 +25,10 @@ const PersonaCreator = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [saving, setSaving] = React.useState(false);
-  const [selectedRole, setSelectedRole] = React.useState('influencer');
+  const [selectedRole, setSelectedRole] = React.useState<PersonaRole>('influencer');
   const [personalityTraits, setPersonalityTraits] = React.useState<Record<string, number>>({});
 
-  const handleRoleSelect = (role: string) => {
+  const handleRoleSelect = (role: PersonaRole) => {
     setSelectedRole(role);
   };
 

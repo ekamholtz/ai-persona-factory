@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -6,8 +7,20 @@ import {
   PiggyBank, Shirt, UtensilsCrossed, Plane, Laptop, Gamepad, 
   Target, Music, Radio, Languages
 } from "lucide-react";
+import type { Database } from '@/integrations/supabase/types';
 
-const roles = [
+type PersonaRole = Database['public']['Enums']['persona_role'];
+
+type RoleSelectorProps = {
+  onSelect: (role: PersonaRole) => void;
+};
+
+const roles: Array<{
+  id: PersonaRole;
+  name: string;
+  description: string;
+  icon: React.ElementType;
+}> = [
   {
     id: 'personal_trainer',
     name: 'Personal Trainer / Wellness Coach',
@@ -118,12 +131,12 @@ const roles = [
   },
 ];
 
-const RoleSelector = ({ onSelect }: { onSelect: (role: string) => void }) => {
+const RoleSelector = ({ onSelect }: RoleSelectorProps) => {
   return (
     <RadioGroup 
       defaultValue="influencer" 
       className="space-y-4 max-h-[400px] overflow-y-auto pr-4"
-      onValueChange={onSelect}
+      onValueChange={(value) => onSelect(value as PersonaRole)}
     >
       {roles.map((role) => (
         <div key={role.id} className="flex items-center space-x-4 rounded-lg border p-4 hover:bg-accent/50 transition-colors">
