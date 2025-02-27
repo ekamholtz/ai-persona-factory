@@ -108,7 +108,10 @@ const PersonaCreator = () => {
           {/* Right column: Personality Builder */}
           <Card className="p-6">
             <h2 className="text-2xl font-semibold mb-6">Personality Traits</h2>
-            <PersonalityBuilder onChange={handlePersonalityChange} />
+            <PersonalityBuilder 
+              onChange={handlePersonalityChange} 
+              selectedRole={selectedRole}
+            />
           </Card>
         </div>
       </div>
