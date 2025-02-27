@@ -1,7 +1,14 @@
-
 import type { Database } from '@/integrations/supabase/types';
 
 type PersonaRole = Database['public']['Enums']['persona_role'];
+
+export type PersonalityTrait = {
+  name: string;
+  key: string;
+  description: string;
+  min: string;
+  max: string;
+};
 
 export type PersonalityTraits = {
   // Big Five
@@ -121,7 +128,6 @@ export const defaultTraits: Record<PersonaRole, PersonalityTraits> = {
     socialSensitivity: 70,
     linguisticStyle: 70
   },
-  // ... continuing with all other roles
   travel_blogger: {
     extroversion: 70,
     openness: 90,
@@ -371,7 +377,7 @@ export const defaultTraits: Record<PersonaRole, PersonalityTraits> = {
   }
 };
 
-export const traitDefinitions = [
+export const traitDefinitions: PersonalityTrait[] = [
   // Big Five
   { 
     name: 'Extroversion',
