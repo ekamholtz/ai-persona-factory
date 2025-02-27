@@ -82,7 +82,8 @@ export type Database = {
           description: string | null
           id: string
           name: string
-          role: string
+          personality_settings: Json
+          role: Database["public"]["Enums"]["persona_role"]
           status: string
           updated_at: string
           user_id: string
@@ -92,7 +93,8 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
-          role: string
+          personality_settings?: Json
+          role: Database["public"]["Enums"]["persona_role"]
           status?: string
           updated_at?: string
           user_id: string
@@ -102,7 +104,8 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
-          role?: string
+          personality_settings?: Json
+          role?: Database["public"]["Enums"]["persona_role"]
           status?: string
           updated_at?: string
           user_id?: string
@@ -117,7 +120,25 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      persona_role:
+        | "personal_trainer"
+        | "virtual_tutor"
+        | "financial_advisor"
+        | "fashion_stylist"
+        | "food_blogger"
+        | "travel_blogger"
+        | "tech_support"
+        | "gaming_streamer"
+        | "life_coach"
+        | "virtual_therapist"
+        | "virtual_dj"
+        | "news_anchor"
+        | "language_partner"
+        | "storyteller"
+        | "influencer"
+        | "companion"
+        | "assistant"
+        | "actor"
     }
     CompositeTypes: {
       [_ in never]: never

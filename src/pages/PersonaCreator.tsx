@@ -15,12 +15,23 @@ type PersonaInsert = {
   user_id: string;
   status: 'draft' | 'published';
   description?: string | null;
+  personality_settings?: Record<string, number>;
 };
 
 const PersonaCreator = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [saving, setSaving] = React.useState(false);
+  const [selectedRole, setSelectedRole] = React.useState('influencer');
+  const [personalityTraits, setPersonalityTraits] = React.useState<Record<string, number>>({});
+
+  const handleRoleSelect = (role: string) => {
+    setSelectedRole(role);
+  };
+
+  const handlePersonalityChange = (traits: Record<string, number>) => {
+    setPersonalityTraits(traits);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -39,9 +50,10 @@ const PersonaCreator = () => {
 
       const newPersona: PersonaInsert = {
         name: 'New Persona',
-        role: 'influencer',
+        role: selectedRole,
         user_id: user.id,
-        status: 'draft'
+        status: 'draft',
+        personality_settings: personalityTraits
       };
 
       // Create the basic persona first
@@ -85,7 +97,7 @@ const PersonaCreator = () => {
 
           <Card className="p-6">
             <h2 className="text-2xl font-semibold mb-6">Role Selection</h2>
-            <RoleSelector />
+            <RoleSelector onSelect={handleRoleSelect} />
           </Card>
         </div>
 
@@ -93,7 +105,7 @@ const PersonaCreator = () => {
           {/* Right column: Personality Builder */}
           <Card className="p-6">
             <h2 className="text-2xl font-semibold mb-6">Personality Traits</h2>
-            <PersonalityBuilder />
+            <PersonalityBuilder onChange={handlePersonalityChange} />
           </Card>
         </div>
       </div>
@@ -102,7 +114,10 @@ const PersonaCreator = () => {
         <Button variant="outline" onClick={() => navigate('/')}>
           Cancel
         </Button>
-        <Button onClick={handleSave} disabled={saving}>
+        <Button 
+          onClick={handleSave} 
+          disabled={saving || !selectedRole || Object.keys(personalityTraits).length === 0}
+        >
           {saving ? 'Creating...' : 'Create Persona'}
         </Button>
       </div>
