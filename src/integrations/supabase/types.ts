@@ -44,6 +44,73 @@ export type Database = {
           },
         ]
       }
+      conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          persona_id: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          persona_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          persona_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          sender_type: string
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          sender_type: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          sender_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       personality_traits: {
         Row: {
           created_at: string
@@ -68,6 +135,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_personality_traits_persona"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "personality_traits_persona_id_fkey"
             columns: ["persona_id"]
             isOneToOne: false
@@ -81,8 +155,11 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          interaction_count: number | null
+          last_interaction: string | null
           name: string
           personality_settings: Json
+          relationship_level: number | null
           role: Database["public"]["Enums"]["persona_role"]
           status: string
           updated_at: string
@@ -92,8 +169,11 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          interaction_count?: number | null
+          last_interaction?: string | null
           name: string
           personality_settings?: Json
+          relationship_level?: number | null
           role: Database["public"]["Enums"]["persona_role"]
           status?: string
           updated_at?: string
@@ -103,14 +183,55 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          interaction_count?: number | null
+          last_interaction?: string | null
           name?: string
           personality_settings?: Json
+          relationship_level?: number | null
           role?: Database["public"]["Enums"]["persona_role"]
           status?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      relationship_events: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          event_type: string
+          id: string
+          impact: number | null
+          persona_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          event_type: string
+          id?: string
+          impact?: number | null
+          persona_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          event_type?: string
+          id?: string
+          impact?: number | null
+          persona_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "relationship_events_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
