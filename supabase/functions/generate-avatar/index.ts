@@ -18,81 +18,94 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const { prompt, attributes, image, personaId } = await req.json();
-
-    console.log('Received request with:', { 
+    
+    // Extract request data
+    const { prompt, attributes, avatarId, userId, style } = await req.json();
+    
+    console.log('Received avatar generation request:', { 
       hasPrompt: !!prompt, 
       hasAttributes: !!attributes, 
-      hasImage: !!image, 
-      personaId 
+      avatarId,
+      userId,
+      style
     });
-
-    // This is a simulation of AI avatar generation
-    // In a real implementation, you would call the windsurf AI API here
     
-    let generatedImageUrl = '';
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
     
-    // Simulate a delay to mimic API processing
+    // Check if user has enough credits
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('credits')
+      .eq('id', userId)
+      .single();
+    
+    if (profileError) {
+      throw new Error(`Failed to get user profile: ${profileError.message}`);
+    }
+    
+    if (profile.credits < 1) {
+      throw new Error('Not enough credits to generate an avatar');
+    }
+    
+    // In a real implementation, this would call Stable Diffusion API
+    // For now, we'll use a placeholder image
+    
+    // Simulate processing time
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    if (prompt) {
-      console.log('Generating from prompt:', prompt);
-      // Call windsurf AI with prompt
-      // For now, we use a placeholder
-      generatedImageUrl = `https://picsum.photos/seed/${Math.random()}/512/512`;
-    } 
-    else if (attributes) {
-      console.log('Generating from attributes:', attributes);
-      // Convert attributes to a prompt for the AI
-      const attributePrompt = `Generate a portrait with these characteristics: ${attributes.race} race, ${attributes.skinColor} skin, ${attributes.hairColor} ${attributes.hairStyle} hair, ${attributes.eyeColor} eyes, ${attributes.bodyType} body type, ${attributes.fashionStyle} fashion style.`;
-      console.log('Attribute prompt:', attributePrompt);
+    let generationPrompt = prompt;
+    
+    // If using attributes instead of direct prompt, build a prompt
+    if (attributes && !prompt) {
+      generationPrompt = `Portrait of a person with ${attributes.gender || 'neutral'} features, ${attributes.ethnicity || ''} ethnicity, ${attributes.age || 'adult'} age, ${attributes.bodyType || ''} body type, ${attributes.hairStyle || ''} ${attributes.hairColor || ''} hair, ${attributes.eyeColor || ''} eyes, wearing ${attributes.fashionStyle || 'casual'} clothes`;
       
-      // Call windsurf AI with attribute prompt
-      // For now, we use a placeholder
-      generatedImageUrl = `https://picsum.photos/seed/${Math.random()}/512/512`;
-    }
-    else if (image) {
-      console.log('Modifying uploaded image');
-      // Process the uploaded image with windsurf AI
-      // For now, we use a placeholder
-      generatedImageUrl = `https://picsum.photos/seed/${Math.random()}/512/512`;
+      if (style) {
+        generationPrompt += `, ${style} style`;
+      }
     }
     
-    // In a real implementation, save the image to Supabase Storage
-    // and create a record in avatar_settings table
+    console.log('Generated prompt:', generationPrompt);
     
-    if (personaId && generatedImageUrl) {
-      console.log('Saving avatar settings for persona:', personaId);
-      
-      // Save to avatar_settings table
-      // This is commented out since we're using a placeholder URL
-      // In a real implementation, you would:
-      // 1. Upload the image to Supabase Storage
-      // 2. Get the public URL
-      // 3. Save the URL and settings to the avatar_settings table
-      
-      /*
-      const { data: avatarSettings, error } = await supabase
-        .from('avatar_settings')
-        .upsert({
-          persona_id: personaId,
-          image_url: generatedImageUrl,
-          style_settings: attributes || { prompt },
+    // For demo, use a placeholder image URL
+    // In production, this would come from the Stable Diffusion API
+    const imageUrl = `https://picsum.photos/seed/${Math.random()}/512/512`;
+    
+    // Log usage and deduct credit
+    await supabase
+      .from('usage_logs')
+      .insert({
+        user_id: userId,
+        action: 'generate_avatar',
+        details: { prompt: generationPrompt, style },
+        credits_used: 1
+      });
+    
+    // Update user credits
+    await supabase
+      .from('profiles')
+      .update({ credits: profile.credits - 1 })
+      .eq('id', userId);
+    
+    // If avatar ID is provided, update the avatar's primary image
+    if (avatarId) {
+      await supabase
+        .from('avatars')
+        .update({ 
+          primary_image_url: imageUrl,
           updated_at: new Date().toISOString()
         })
-        .select('*')
-        .single();
-        
-      if (error) {
-        throw new Error(`Failed to save avatar settings: ${error.message}`);
-      }
-      */
+        .eq('id', avatarId);
     }
-
+    
+    // Return the generated image
     return new Response(
       JSON.stringify({ 
-        imageUrl: generatedImageUrl,
-        success: true 
+        success: true,
+        imageUrl,
+        prompt: generationPrompt,
+        creditsRemaining: profile.credits - 1
       }),
       { 
         headers: { 
@@ -106,8 +119,8 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({ 
-        error: error.message,
-        success: false
+        success: false,
+        error: error.message 
       }),
       { 
         headers: { 
