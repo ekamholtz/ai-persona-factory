@@ -1,354 +1,305 @@
 
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import MainLayout from '@/components/layout/MainLayout';
-import { useToast } from '@/components/ui/use-toast';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Download, 
-  Share2, 
-  Trash, 
-  Play, 
-  Image as ImageIcon,
-  Film
-} from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-
-interface Generation {
-  id: string;
-  url: string;
-  type: 'image' | 'video';
-  prompt: string;
-  scene_description?: string;
-  created_at: string;
-  avatar_id: string;
-  style?: string;
-  additional_params?: any;
-}
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Loader2, Download, Plus, Filter, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Avatar, Generation } from '@/types/avatar';
 
 const Gallery = () => {
-  const [generations, setGenerations] = useState<Generation[]>([]);
-  const [selectedGeneration, setSelectedGeneration] = useState<Generation | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
+  const avatarIdFromUrl = searchParams.get('avatar');
+
+  const [loading, setLoading] = useState<boolean>(true);
+  const [generations, setGenerations] = useState<Generation[]>([]);
+  const [avatars, setAvatars] = useState<Avatar[]>([]);
+  const [selectedGeneration, setSelectedGeneration] = useState<Generation | null>(null);
+  const [dialogOpen, setDialogOpen] = useState<boolean>(false);
+  const [selectedAvatar, setSelectedAvatar] = useState<string>(avatarIdFromUrl || '');
+  const [selectedType, setSelectedType] = useState<string>('all');
 
   useEffect(() => {
-    const fetchGenerations = async () => {
-      setLoading(true);
-      
-      try {
-        // Get user ID
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) return;
-        
-        // Get all generations
-        const { data, error } = await supabase
-          .from('generations')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        
-        setGenerations(data || []);
-        
-        if (data && data.length > 0) {
-          setSelectedGeneration(data[0]);
-        }
-      } catch (error: any) {
-        toast({
-          variant: "destructive",
-          title: "Error fetching generations",
-          description: error.message,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
+    fetchAvatars();
     fetchGenerations();
-  }, [toast]);
-  
-  const handleDeleteGeneration = async (id: string) => {
+  }, [avatarIdFromUrl]);
+
+  const fetchAvatars = async () => {
     try {
-      const { error } = await supabase
-        .from('generations')
-        .delete()
-        .eq('id', id);
+      const { data: { user } } = await supabase.auth.getUser();
       
-      if (error) throw error;
-      
-      setGenerations(generations.filter(gen => gen.id !== id));
-      
-      if (selectedGeneration?.id === id) {
-        setSelectedGeneration(generations.length > 1 ? generations[0] : null);
+      if (!user) {
+        throw new Error('User not authenticated');
       }
+
+      const { data, error } = await supabase
+        .from('avatars')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setAvatars(data as Avatar[]);
       
+      // If no avatar is selected in URL and we have avatars, select the first one
+      if (!avatarIdFromUrl && data.length > 0 && !selectedAvatar) {
+        setSelectedAvatar(data[0].id);
+        setSearchParams({ avatar: data[0].id });
+      }
+    } catch (error) {
+      console.error('Error fetching avatars:', error);
       toast({
-        title: "Generation deleted",
-        description: "The content has been deleted from your gallery.",
-      });
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error deleting generation",
-        description: error.message,
+        title: 'Error',
+        description: 'Failed to load avatars',
+        variant: 'destructive',
       });
     }
   };
-  
-  const downloadGeneration = (url: string, filename: string) => {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename || 'ai-generation';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
-  
-  const shareGeneration = (url: string) => {
-    if (navigator.share) {
-      navigator.share({
-        title: 'Check out my AI-generated content',
-        text: 'Created with AI Avatar Creator',
-        url: url,
-      }).catch((error) => {
-        toast({
-          variant: "destructive",
-          title: "Sharing failed",
-          description: error.message,
-        });
+
+  const fetchGenerations = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      let query = supabase
+        .from('generations')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      // Filter by avatar if selected
+      if (avatarIdFromUrl) {
+        query = query.eq('avatar_id', avatarIdFromUrl);
+      } else if (selectedAvatar) {
+        query = query.eq('avatar_id', selectedAvatar);
+      }
+
+      // Filter by type if not "all"
+      if (selectedType !== 'all') {
+        query = query.eq('type', selectedType);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setGenerations(data as Generation[]);
+    } catch (error) {
+      console.error('Error fetching generations:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load generated content',
+        variant: 'destructive',
       });
-    } else {
-      navigator.clipboard.writeText(url).then(() => {
-        toast({
-          title: "Link copied to clipboard",
-          description: "You can now paste the link anywhere you want to share it.",
-        });
-      });
+    } finally {
+      setLoading(false);
     }
   };
-  
+
+  const handleAvatarChange = (value: string) => {
+    setSelectedAvatar(value);
+    setSearchParams({ avatar: value });
+  };
+
+  const handleTypeChange = (value: string) => {
+    setSelectedType(value);
+    // Trigger filter
+    fetchGenerations();
+  };
+
+  const openGenerationDialog = (generation: Generation) => {
+    setSelectedGeneration(generation);
+    setDialogOpen(true);
+  };
+
+  const downloadGeneration = (url: string, filename = 'avatar-generation.jpg') => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <MainLayout>
-      <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">My Gallery</h1>
-          <Tabs defaultValue="all" className="w-[300px]">
-            <TabsList>
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="images">
-                <ImageIcon className="h-4 w-4 mr-1" />
-                Images
-              </TabsTrigger>
-              <TabsTrigger value="videos">
-                <Film className="h-4 w-4 mr-1" />
-                Videos
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-        
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        ) : generations.length === 0 ? (
-          <Card className="flex flex-col items-center justify-center p-8 text-center">
-            <div className="mb-4 rounded-full bg-muted p-6">
-              <ImageIcon className="h-10 w-10 text-muted-foreground" />
-            </div>
-            <h3 className="text-xl font-semibold">Your Gallery is Empty</h3>
-            <p className="text-muted-foreground mb-4">
-              Create an avatar and generate content to see it here
-            </p>
-            <Button onClick={() => window.location.href = '/create'}>Create Now</Button>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="col-span-1 h-[600px] overflow-y-auto border rounded-lg p-4 space-y-4">
-              {generations.map((gen) => (
-                <div 
-                  key={gen.id}
-                  className={`flex gap-4 p-2 rounded-lg cursor-pointer hover:bg-accent transition-colors ${
-                    selectedGeneration?.id === gen.id ? 'bg-accent' : ''
-                  }`}
-                  onClick={() => setSelectedGeneration(gen)}
-                >
-                  <div className="w-20 h-20 bg-muted rounded overflow-hidden flex-shrink-0">
-                    {gen.type === 'image' ? (
-                      <img 
-                        src={gen.url} 
-                        alt={gen.prompt}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="relative w-full h-full">
-                        <video
-                          src={gen.url}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                          <Play className="h-6 w-6 text-white" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <p className="text-sm line-clamp-2 mb-1">{gen.prompt}</p>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="h-5 px-1">
-                        {gen.type}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(gen.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+      <div className="container mx-auto py-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <h1 className="text-3xl font-bold">Content Gallery</h1>
+          
+          <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+            <div className="flex-1 md:flex-initial min-w-[200px]">
+              <Select value={selectedAvatar} onValueChange={handleAvatarChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Avatar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Avatars</SelectItem>
+                  {avatars.map((avatar) => (
+                    <SelectItem key={avatar.id} value={avatar.id}>
+                      {avatar.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
-            <div className="col-span-1 lg:col-span-2">
-              {selectedGeneration ? (
-                <Card>
-                  <div className="p-4">
-                    <div className="bg-muted rounded-lg overflow-hidden mb-4">
-                      {selectedGeneration.type === 'image' ? (
-                        <img
-                          src={selectedGeneration.url}
-                          alt={selectedGeneration.prompt}
-                          className="w-full max-h-[500px] object-contain"
+            <div className="flex-1 md:flex-initial min-w-[150px]">
+              <Select value={selectedType} onValueChange={handleTypeChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Content Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="image">Images</SelectItem>
+                  <SelectItem value="video">Videos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <Button asChild className="flex-1 md:flex-initial">
+              <Link to={selectedAvatar ? `/edit/${selectedAvatar}` : "/create"}>
+                <Plus className="mr-2 h-4 w-4" />
+                Generate New
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <>
+            {generations.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Sparkles className="h-16 w-16 text-muted-foreground mb-4" />
+                  <h3 className="text-xl font-medium mb-2">No content yet</h3>
+                  <p className="text-muted-foreground text-center max-w-md mb-6">
+                    {avatars.length === 0 
+                      ? "Create your first avatar to start generating content."
+                      : "Start generating unique images and videos with your avatars."}
+                  </p>
+                  <Button asChild>
+                    <Link to={avatars.length > 0 ? `/edit/${avatars[0].id}` : "/create"}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      {avatars.length > 0 ? "Generate Content" : "Create Avatar"}
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {generations.map((generation) => (
+                  <Card 
+                    key={generation.id} 
+                    className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => openGenerationDialog(generation)}
+                  >
+                    <div className="aspect-square relative bg-muted">
+                      {generation.type === 'image' ? (
+                        <img 
+                          src={generation.url} 
+                          alt={generation.prompt?.substring(0, 20)}
+                          className="w-full h-full object-cover"
                         />
                       ) : (
-                        <video
-                          src={selectedGeneration.url}
-                          className="w-full max-h-[500px]"
-                          controls
-                        />
-                      )}
-                    </div>
-                    
-                    <div className="flex justify-between items-center mb-4">
-                      <Badge>
-                        {selectedGeneration.type}
-                      </Badge>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => downloadGeneration(
-                            selectedGeneration.url, 
-                            `ai-${selectedGeneration.type}-${Date.now()}`
-                          )}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => shareGeneration(selectedGeneration.url)}
-                        >
-                          <Share2 className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="text-destructive"
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently delete this content from your gallery.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => handleDeleteGeneration(selectedGeneration.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="text-sm font-medium mb-1">Prompt</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {selectedGeneration.prompt}
-                        </p>
-                      </div>
-                      
-                      {selectedGeneration.scene_description && (
-                        <div>
-                          <h3 className="text-sm font-medium mb-1">Scene Description</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {selectedGeneration.scene_description}
-                          </p>
+                        <div className="flex items-center justify-center h-full bg-black">
+                          <div className="text-white text-sm">Video content</div>
                         </div>
                       )}
-                      
-                      <div className="flex flex-wrap gap-2">
-                        {selectedGeneration.style && (
-                          <Badge variant="outline">{selectedGeneration.style}</Badge>
-                        )}
-                        
-                        {selectedGeneration.additional_params && Object.entries(selectedGeneration.additional_params).map(([key, value]) => (
-                          <Badge key={key} variant="outline">
-                            {key}: {value}
-                          </Badge>
-                        ))}
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-sm font-medium mb-1">Created</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(selectedGeneration.created_at).toLocaleString()}
-                        </p>
-                      </div>
                     </div>
-                  </div>
-                </Card>
-              ) : (
-                <Card className="flex flex-col items-center justify-center p-8 text-center h-full">
-                  <div className="mb-4 rounded-full bg-muted p-6">
-                    <ImageIcon className="h-10 w-10 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-xl font-semibold">Select a Generated Image</h3>
-                  <p className="text-muted-foreground">
-                    Click on an item from the gallery to view details
-                  </p>
-                </Card>
-              )}
-            </div>
-          </div>
+                    <CardContent className="p-4">
+                      <div className="line-clamp-2 text-sm">
+                        {generation.prompt || "No prompt data"}
+                      </div>
+                      <div className="mt-2 flex justify-between items-center text-xs text-muted-foreground">
+                        <span>{new Date(generation.created_at).toLocaleDateString()}</span>
+                        <span className="capitalize">{generation.type}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
+      
+      {/* Detail Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-3xl w-[90vw]">
+          <DialogHeader>
+            <DialogTitle>Generation Details</DialogTitle>
+            <DialogDescription>
+              Created on {selectedGeneration ? new Date(selectedGeneration.created_at).toLocaleString() : ''}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedGeneration && (
+            <div className="space-y-4">
+              <div className="aspect-video relative bg-muted rounded-md overflow-hidden">
+                {selectedGeneration.type === 'image' ? (
+                  <img 
+                    src={selectedGeneration.url} 
+                    alt={selectedGeneration.prompt?.substring(0, 20)}
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full bg-black">
+                    <div className="text-white">Video content</div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="font-medium">Prompt</h4>
+                <p className="text-sm">{selectedGeneration.prompt}</p>
+              </div>
+              
+              {selectedGeneration.scene_description && (
+                <div className="space-y-2">
+                  <h4 className="font-medium">Scene Description</h4>
+                  <p className="text-sm">{selectedGeneration.scene_description}</p>
+                </div>
+              )}
+              
+              {selectedGeneration.style && (
+                <div className="space-y-2">
+                  <h4 className="font-medium">Style</h4>
+                  <p className="text-sm capitalize">{selectedGeneration.style}</p>
+                </div>
+              )}
+              
+              <div className="flex justify-end gap-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => downloadGeneration(selectedGeneration.url)}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download
+                </Button>
+                <Button asChild>
+                  <Link to={`/edit/${selectedGeneration.avatar_id}`}>
+                    Generate More
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 };

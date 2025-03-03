@@ -1,453 +1,412 @@
 
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import MainLayout from '@/components/layout/MainLayout';
-import { useToast } from '@/components/ui/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, CreditCard, Upload, User, Key } from 'lucide-react';
-
-interface Profile {
-  id: string;
-  full_name: string;
-  avatar_url: string | null;
-  role: 'user' | 'premium' | 'admin';
-  credits: number;
-  subscription_tier: string | null;
-  subscription_expires_at: string | null;
-  created_at: string;
-}
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Loader2, LogOut, User, CreditCard, Bell, Shield, Trash2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Profile } from '@/types/avatar';
 
 const Settings = () => {
-  const [searchParams] = useSearchParams();
-  const defaultTab = searchParams.get('tab') || 'profile';
-  
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [fullName, setFullName] = useState('');
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  
-  const { toast } = useToast();
   const navigate = useNavigate();
-  
+  const { toast } = useToast();
+  const [loading, setLoading] = useState<boolean>(true);
+  const [savingProfile, setSavingProfile] = useState<boolean>(false);
+  const [profile, setProfile] = useState<Profile>({
+    id: '',
+    full_name: '',
+    avatar_url: '',
+    role: 'user',
+    credits: 0,
+    created_at: '',
+    updated_at: ''
+  });
+  const [emailNotifications, setEmailNotifications] = useState<boolean>(true);
+  const [sessionNotifications, setSessionNotifications] = useState<boolean>(true);
+
   useEffect(() => {
-    const getProfile = async () => {
-      setLoading(true);
-      
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          navigate('/auth');
-          return;
-        }
-        
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-        
-        if (error) throw error;
-        
-        setProfile(data);
-        setFullName(data.full_name || '');
-      } catch (error: any) {
-        toast({
-          variant: "destructive",
-          title: "Error fetching profile",
-          description: error.message,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    getProfile();
-  }, [navigate, toast]);
-  
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    setAvatarFile(file);
-    setAvatarPreview(URL.createObjectURL(file));
-  };
-  
-  const updateProfile = async () => {
-    if (!profile) return;
-    
-    setSaving(true);
-    
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    setLoading(true);
     try {
-      let avatarUrl = profile.avatar_url;
+      const { data: { user } } = await supabase.auth.getUser();
       
-      // Upload avatar if changed
-      if (avatarFile) {
-        const fileExt = avatarFile.name.split('.').pop();
-        const filePath = `${profile.id}-${Date.now()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('avatar-images')
-          .upload(filePath, avatarFile);
-        
-        if (uploadError) throw uploadError;
-        
-        const { data } = supabase.storage
-          .from('avatar-images')
-          .getPublicUrl(filePath);
-        
-        avatarUrl = data.publicUrl;
+      if (!user) {
+        throw new Error('User not authenticated');
       }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
       
-      // Update profile
+      if (data) {
+        setProfile(data as Profile);
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load profile data',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setProfile(prev => ({ ...prev, [name]: value }));
+  };
+
+  const updateProfile = async () => {
+    setSavingProfile(true);
+    try {
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: fullName,
-          avatar_url: avatarUrl,
-          updated_at: new Date().toISOString(),
+          full_name: profile.full_name,
+          updated_at: new Date().toISOString()
         })
         .eq('id', profile.id);
-      
+
       if (error) throw error;
       
-      setProfile({
-        ...profile,
-        full_name: fullName,
-        avatar_url: avatarUrl,
-      });
-      
       toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully.",
+        title: 'Profile updated',
+        description: 'Your profile has been successfully updated.',
       });
-    } catch (error: any) {
+    } catch (error) {
+      console.error('Error updating profile:', error);
       toast({
-        variant: "destructive",
-        title: "Error updating profile",
-        description: error.message,
+        title: 'Error',
+        description: 'Failed to update profile',
+        variant: 'destructive',
       });
     } finally {
-      setSaving(false);
+      setSavingProfile(false);
     }
   };
-  
-  const handleChangePassword = async (currentPassword: string, newPassword: string) => {
-    setSaving(true);
-    
+
+  const signOut = async () => {
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
-      
-      if (error) throw error;
-      
+      await supabase.auth.signOut();
+      navigate('/auth');
+    } catch (error) {
+      console.error('Error signing out:', error);
       toast({
-        title: "Password updated",
-        description: "Your password has been changed successfully.",
+        title: 'Error',
+        description: 'Failed to sign out',
+        variant: 'destructive',
       });
-      
-      // Reset form
-      document.getElementById('password-form')?.reset();
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error updating password",
-        description: error.message,
-      });
-    } finally {
-      setSaving(false);
     }
   };
-  
-  const getInitials = (name: string) => {
-    if (!name) return 'U';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
-  };
-  
+
   if (loading) {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center h-[500px]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       </MainLayout>
     );
   }
-  
+
   return (
     <MainLayout>
-      <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between">
+      <div className="container mx-auto py-6">
+        <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Settings</h1>
+          <Button variant="outline" onClick={signOut}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign Out
+          </Button>
         </div>
-        
-        <Tabs defaultValue={defaultTab} className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-3">
-            <TabsTrigger value="profile">
-              <User className="h-4 w-4 mr-2" />
-              Profile
-            </TabsTrigger>
-            <TabsTrigger value="security">
-              <Key className="h-4 w-4 mr-2" />
-              Security
-            </TabsTrigger>
-            <TabsTrigger value="billing">
-              <CreditCard className="h-4 w-4 mr-2" />
-              Billing
-            </TabsTrigger>
+
+        <Tabs defaultValue="account" className="space-y-6">
+          <TabsList className="grid w-full md:w-auto grid-cols-3">
+            <TabsTrigger value="account">Account</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
+            <TabsTrigger value="subscription">Subscription</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="profile" className="space-y-4">
+          <TabsContent value="account">
+            <div className="grid gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Profile Information</CardTitle>
+                  <CardDescription>
+                    Update your account details
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="flex flex-col md:flex-row md:items-center gap-4">
+                    <Avatar className="w-16 h-16">
+                      {profile.avatar_url ? (
+                        <AvatarImage src={profile.avatar_url} alt={profile.full_name || 'User'} />
+                      ) : (
+                        <AvatarFallback>
+                          <User className="h-8 w-8" />
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                    
+                    <div className="flex-1">
+                      <h3 className="text-lg font-medium">{profile.full_name || 'User'}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Member since {new Date(profile.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="full_name">Name</Label>
+                      <Input
+                        id="full_name"
+                        name="full_name"
+                        value={profile.full_name || ''}
+                        onChange={handleInputChange}
+                        placeholder="Your name"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex justify-between">
+                  <Button variant="outline" onClick={fetchProfile}>Reset</Button>
+                  <Button
+                    onClick={updateProfile}
+                    disabled={savingProfile}
+                  >
+                    {savingProfile ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : 'Save Changes'}
+                  </Button>
+                </CardFooter>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Account Statistics</CardTitle>
+                  <CardDescription>
+                    Overview of your account usage and limits
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-muted p-4 rounded-lg">
+                      <div className="text-sm text-muted-foreground mb-1">Available Credits</div>
+                      <div className="text-2xl font-bold">{profile.credits}</div>
+                    </div>
+                    
+                    <div className="bg-muted p-4 rounded-lg">
+                      <div className="text-sm text-muted-foreground mb-1">Account Type</div>
+                      <div className="text-2xl font-bold capitalize">{profile.role}</div>
+                    </div>
+                    
+                    <div className="bg-muted p-4 rounded-lg">
+                      <div className="text-sm text-muted-foreground mb-1">Subscription</div>
+                      <div className="text-2xl font-bold">
+                        {profile.subscription_tier || 'Free'}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Danger Zone</CardTitle>
+                  <CardDescription>
+                    Irreversible account actions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Account
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete your
+                          account and remove all your data from our servers.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction className="bg-destructive">
+                          Delete Account
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="notifications">
             <Card>
               <CardHeader>
-                <CardTitle>Profile Information</CardTitle>
+                <CardTitle>Notification Preferences</CardTitle>
                 <CardDescription>
-                  Update your personal information and profile picture
+                  Control when and how you receive notifications
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex flex-col items-center space-y-4">
-                  <Avatar className="h-24 w-24">
-                    <AvatarImage src={avatarPreview || profile?.avatar_url || undefined} />
-                    <AvatarFallback className="text-lg">
-                      {getInitials(profile?.full_name || '')}
-                    </AvatarFallback>
-                  </Avatar>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-base">Email Notifications</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Receive updates and alerts via email
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={emailNotifications}
+                      onCheckedChange={setEmailNotifications}
+                    />
+                  </div>
                   
-                  <div className="flex items-center gap-2">
-                    <Label
-                      htmlFor="avatar-upload"
-                      className="cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-                    >
-                      <Upload className="h-4 w-4" />
-                      Change Avatar
-                    </Label>
-                    <input
-                      id="avatar-upload"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAvatarChange}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-base">In-App Notifications</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Show notifications while you're using the app
+                      </p>
+                    </div>
+                    <Switch 
+                      checked={sessionNotifications}
+                      onCheckedChange={setSessionNotifications}
                     />
                   </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name</Label>
-                  <Input
-                    id="fullName"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    value={profile?.id || ''}
-                    disabled
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Email cannot be changed
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Account Type</Label>
-                  <div className="flex items-center gap-2">
-                    <Badge>{profile?.role || 'user'}</Badge>
-                    {profile?.subscription_tier && (
-                      <Badge variant="outline">{profile.subscription_tier}</Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Account created on {new Date(profile?.created_at || '').toLocaleDateString()}
-                  </p>
-                </div>
               </CardContent>
-              <CardFooter>
-                <Button onClick={updateProfile} disabled={saving}>
-                  {saving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Save Changes'
-                  )}
-                </Button>
+              <CardFooter className="flex justify-end">
+                <Button>Save Preferences</Button>
               </CardFooter>
             </Card>
           </TabsContent>
           
-          <TabsContent value="security" className="space-y-4">
+          <TabsContent value="subscription">
             <Card>
               <CardHeader>
-                <CardTitle>Change Password</CardTitle>
+                <CardTitle>Subscription Plan</CardTitle>
                 <CardDescription>
-                  Update your password to keep your account secure
+                  Manage your subscription and billing
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <form id="password-form" className="space-y-4" onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.currentTarget);
-                  const currentPassword = formData.get('currentPassword') as string;
-                  const newPassword = formData.get('newPassword') as string;
-                  const confirmPassword = formData.get('confirmPassword') as string;
-                  
-                  if (newPassword !== confirmPassword) {
-                    toast({
-                      variant: "destructive",
-                      title: "Passwords don't match",
-                      description: "New password and confirmation must match.",
-                    });
-                    return;
-                  }
-                  
-                  handleChangePassword(currentPassword, newPassword);
-                }}>
-                  <div className="space-y-2">
-                    <Label htmlFor="currentPassword">Current Password</Label>
-                    <Input
-                      id="currentPassword"
-                      name="currentPassword"
-                      type="password"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="newPassword">New Password</Label>
-                    <Input
-                      id="newPassword"
-                      name="newPassword"
-                      type="password"
-                      required
-                      minLength={8}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Password must be at least 8 characters long
-                    </p>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                    <Input
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      type="password"
-                      required
-                    />
-                  </div>
-                  
-                  <Button type="submit" disabled={saving}>
-                    {saving ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Updating...
-                      </>
-                    ) : (
-                      'Update Password'
+                <div className="bg-muted p-6 rounded-lg">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-medium">Current Plan</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {profile.subscription_tier ? `${profile.subscription_tier} Plan` : 'Free Tier'}
+                      </p>
+                    </div>
+                    {profile.subscription_tier && (
+                      <div className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm">
+                        Active
+                      </div>
                     )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="billing" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Subscription</CardTitle>
-                <CardDescription>
-                  Manage your subscription and payment details
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <h3 className="font-medium">Current Plan</h3>
-                    <p className="text-muted-foreground">
-                      {profile?.subscription_tier ? profile.subscription_tier : 'Free Plan'}
-                    </p>
                   </div>
                   
-                  {profile?.subscription_tier ? (
-                    <Badge>
-                      {profile.subscription_expires_at
-                        ? `Expires: ${new Date(profile.subscription_expires_at).toLocaleDateString()}`
-                        : 'Active'}
-                    </Badge>
-                  ) : (
-                    <Button variant="outline" size="sm">
-                      Upgrade
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Monthly Credits</span>
+                      <span className="font-medium">{profile.role === 'premium' ? '100' : '5'}</span>
+                    </div>
+                    
+                    {profile.subscription_expires_at && (
+                      <div className="flex justify-between text-sm">
+                        <span>Next Billing Date</span>
+                        <span className="font-medium">
+                          {new Date(profile.subscription_expires_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="grid gap-4">
+                  <h3 className="text-lg font-medium">Available Plans</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card className={`border-2 ${profile.role === 'user' ? 'border-primary' : 'border-transparent'}`}>
+                      <CardHeader>
+                        <CardTitle>Free</CardTitle>
+                        <CardDescription>Basic features for personal use</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-3xl font-bold mb-4">$0</div>
+                        <ul className="space-y-2 text-sm">
+                          <li>5 credits per month</li>
+                          <li>Basic avatar generation</li>
+                          <li>Standard image resolution</li>
+                          <li>3 saved avatars maximum</li>
+                        </ul>
+                      </CardContent>
+                      <CardFooter>
+                        <Button variant="outline" className="w-full" disabled={profile.role === 'user'}>
+                          {profile.role === 'user' ? 'Current Plan' : 'Select Plan'}
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                    
+                    <Card className={`border-2 ${profile.role === 'premium' ? 'border-primary' : 'border-transparent'}`}>
+                      <CardHeader>
+                        <CardTitle>Premium</CardTitle>
+                        <CardDescription>Enhanced features for more creativity</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-3xl font-bold mb-4">$9.99<span className="text-sm font-normal">/month</span></div>
+                        <ul className="space-y-2 text-sm">
+                          <li>100 credits per month</li>
+                          <li>Advanced avatar generation</li>
+                          <li>HD image resolution</li>
+                          <li>Video generation</li>
+                          <li>Unlimited saved avatars</li>
+                        </ul>
+                      </CardContent>
+                      <CardFooter>
+                        <Button className="w-full" disabled={profile.role === 'premium'}>
+                          {profile.role === 'premium' ? 'Current Plan' : 'Upgrade'}
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  </div>
+                </div>
+                
+                {profile.subscription_tier && (
+                  <div className="flex justify-center mt-6">
+                    <Button variant="outline" className="text-destructive">
+                      Cancel Subscription
                     </Button>
-                  )}
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Credit Balance</Label>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-lg px-4 py-2">
-                      {profile?.credits || 0} credits
-                    </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Credits are used for generating images and videos
-                  </p>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">5 Credits</CardTitle>
-                      <CardDescription>$4.99</CardDescription>
-                    </CardHeader>
-                    <CardFooter>
-                      <Button variant="outline" className="w-full">Buy</Button>
-                    </CardFooter>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">20 Credits</CardTitle>
-                      <CardDescription>$14.99</CardDescription>
-                    </CardHeader>
-                    <CardFooter>
-                      <Button variant="outline" className="w-full">Buy</Button>
-                    </CardFooter>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">50 Credits</CardTitle>
-                      <CardDescription>$29.99</CardDescription>
-                    </CardHeader>
-                    <CardFooter>
-                      <Button variant="outline" className="w-full">Buy</Button>
-                    </CardFooter>
-                  </Card>
-                </div>
-                
-                <div className="pt-4">
-                  <h3 className="font-medium mb-2">Payment Methods</h3>
-                  <Button variant="outline">
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Add Payment Method
-                  </Button>
-                </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

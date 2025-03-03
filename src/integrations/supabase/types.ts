@@ -44,6 +44,72 @@ export type Database = {
           },
         ]
       }
+      avatars: {
+        Row: {
+          age: string | null
+          body_type: string | null
+          config: Json
+          created_at: string
+          description: string | null
+          ethnicity: string | null
+          eye_color: string | null
+          facial_features: Json | null
+          gender: string | null
+          hair_color: string | null
+          hair_style: string | null
+          id: string
+          name: string
+          personality_traits: Json | null
+          primary_image_url: string | null
+          role: string | null
+          style: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          age?: string | null
+          body_type?: string | null
+          config?: Json
+          created_at?: string
+          description?: string | null
+          ethnicity?: string | null
+          eye_color?: string | null
+          facial_features?: Json | null
+          gender?: string | null
+          hair_color?: string | null
+          hair_style?: string | null
+          id?: string
+          name: string
+          personality_traits?: Json | null
+          primary_image_url?: string | null
+          role?: string | null
+          style: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          age?: string | null
+          body_type?: string | null
+          config?: Json
+          created_at?: string
+          description?: string | null
+          ethnicity?: string | null
+          eye_color?: string | null
+          facial_features?: Json | null
+          gender?: string | null
+          hair_color?: string | null
+          hair_style?: string | null
+          id?: string
+          name?: string
+          personality_traits?: Json | null
+          primary_image_url?: string | null
+          role?: string | null
+          style?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           created_at: string | null
@@ -75,6 +141,53 @@ export type Database = {
             columns: ["persona_id"]
             isOneToOne: false
             referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generations: {
+        Row: {
+          additional_params: Json | null
+          avatar_id: string
+          created_at: string
+          id: string
+          prompt: string
+          scene_description: string | null
+          style: string | null
+          type: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          additional_params?: Json | null
+          avatar_id: string
+          created_at?: string
+          id?: string
+          prompt: string
+          scene_description?: string | null
+          style?: string | null
+          type: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          additional_params?: Json | null
+          avatar_id?: string
+          created_at?: string
+          id?: string
+          prompt?: string
+          scene_description?: string | null
+          style?: string | null
+          type?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generations_avatar_id_fkey"
+            columns: ["avatar_id"]
+            isOneToOne: false
+            referencedRelation: "avatars"
             referencedColumns: ["id"]
           },
         ]
@@ -195,6 +308,42 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          credits: number
+          full_name: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          subscription_expires_at: string | null
+          subscription_tier: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          credits?: number
+          full_name?: string | null
+          id: string
+          role?: Database["public"]["Enums"]["app_role"]
+          subscription_expires_at?: string | null
+          subscription_tier?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          credits?: number
+          full_name?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          subscription_expires_at?: string | null
+          subscription_tier?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       relationship_events: {
         Row: {
           created_at: string | null
@@ -233,6 +382,69 @@ export type Database = {
           },
         ]
       }
+      templates: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_public: boolean | null
+          name: string
+          prompt: string
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name: string
+          prompt: string
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name?: string
+          prompt?: string
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usage_logs: {
+        Row: {
+          action: string
+          created_at: string
+          credits_used: number
+          details: Json | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          credits_used?: number
+          details?: Json | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          credits_used?: number
+          details?: Json | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -241,6 +453,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      app_role: "admin" | "user" | "premium"
       persona_role:
         | "personal_trainer"
         | "virtual_tutor"
